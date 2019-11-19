@@ -2,12 +2,17 @@ package com.futu.openapi.sample;
 
 import com.futu.openapi.pb.*;
 import com.futu.openapi.*;
+import com.futu.openapi.pb.QotCommon.PlateInfo;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 class Config {
 
@@ -96,12 +101,29 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
 
     //测试获取基本行情，需要先订阅才能获取
     void getBasicQot() {
-        QotCommon.Security sec1 = QotCommon.Security.newBuilder().setCode("00388")
-                .setMarket(QotCommon.QotMarket.QotMarket_HK_Security.getNumber())
+        QotCommon.Security sec1 = QotCommon.Security.newBuilder().setCode("600118")
+                .setMarket(QotCommon.QotMarket.QotMarket_CNSH_Security.getNumber())
                 .build();
         QotGetBasicQot.C2S c2s = QotGetBasicQot.C2S.newBuilder().addSecurityList(sec1).build();
         QotGetBasicQot.Request req = QotGetBasicQot.Request.newBuilder().setC2S(c2s).build();
         qot.getBasicQot(req);
+    }
+    
+    void getPlateSet() {
+        QotGetPlateSet.C2S c2s = QotGetPlateSet.C2S.newBuilder()
+                .setMarket(QotCommon.QotMarket.QotMarket_CNSH_Security.getNumber())
+                .setPlateSetType(QotCommon.PlateSetType.PlateSetType_All_VALUE).build();
+        QotGetPlateSet.Request req = QotGetPlateSet.Request.newBuilder().setC2S(c2s).build();
+        qot.getPlateSet(req);
+    }
+    
+    void getPlateSecurity() {
+        QotCommon.Security sec = QotCommon.Security.newBuilder().setCode("BK0922")
+                .setMarket(QotCommon.QotMarket.QotMarket_CNSH_Security.getNumber())
+                .build();
+        QotGetPlateSecurity.C2S c2s = QotGetPlateSecurity.C2S.newBuilder().setPlate(sec).build();
+        QotGetPlateSecurity.Request req = QotGetPlateSecurity.Request.newBuilder().setC2S(c2s).build();
+        qot.getPlateSecurity(req);
     }
 
     //与OpenD连接和初始化完成，可以进行各种业务请求。如果ret为false，表示失败，desc中有错误信息
@@ -113,11 +135,14 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
         }
 
 //        InitConnect成功返回才能继续后面的请求
-        this.getGlobalState();
-        this.sub();
-        this.getSubInfo();
-        this.requestHistoryKL();
-        this.getBasicQot();
+//        this.getGlobalState();
+//        this.sub();
+//        this.getSubInfo();
+//        this.requestHistoryKL();
+//        this.getBasicQot();
+//        this.getPlateSet();
+        this.getPlateSecurity();
+        
     }
 
     @Override
@@ -143,7 +168,13 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
 
     @Override
     public void onReply_GetPlateSet(FTAPI_Conn client, int nSerialNo, QotGetPlateSet.Response rsp) {
-        System.out.printf("Reply GetPlateSet: %d  %s\n", nSerialNo, rsp.toString());
+        QotGetPlateSet.S2C s2c = rsp.getS2C();
+        List<PlateInfo> list = s2c.getPlateInfoListList();
+        for(QotCommon.PlateInfo l : list) {
+                QotCommon.Security sec = l.getPlate();
+                System.out.println(l.getName() + "\t" + sec.getCode());
+        }
+//            System.out.printf("Reply GetPlateSet: %d  %s\n", nSerialNo, rsp.toString());
     }
 
     @Override
@@ -165,6 +196,20 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
     public void onPush_UpdateBasicQuote(FTAPI_Conn client, QotUpdateBasicQot.Response rsp) {
         System.out.printf("Push: QOT: %s\n", rsp.toString());
     }
+
+    @Override
+    public void onReply_GetPlateSecurity(FTAPI_Conn client, int nSerialNo, QotGetPlateSecurity.Response rsp) {
+        QotGetPlateSecurity.S2C s2c = rsp.getS2C();
+        System.out.println(rsp.getRetMsg());
+        List<QotCommon.SecurityStaticInfo> list = s2c.getStaticInfoListList();
+        for(QotCommon.SecurityStaticInfo l : list) {
+            QotCommon.SecurityStaticBasic basic = l.getBasic();
+            QotCommon.Security sec = basic.getSecurity();
+            System.out.println(basic.getName() + "\t" + sec.getCode());
+        }
+//            System.out.printf("Reply GetPlateSecurity: %d  %s\n", nSerialNo, rsp.toString());
+    }
+    
 }
 
 class MD5Util {
@@ -300,6 +345,38 @@ class TestTrd implements FTSPI_Conn, FTSPI_Trd {
     @Override
     public void onPush_UpdateOrderFill(FTAPI_Conn client, TrdUpdateOrderFill.Response rsp) {
         System.out.printf("Push UpdateOrderFill: %s\n", rsp.toString());
+    }
+    
+    public static String toOct(String s)
+    {
+        String result = "";
+        byte[] bytes = s.getBytes();
+        for (byte b : bytes)
+        {
+            int b1 = b;
+            if (b1 < 0) b1 = 256 + b1;
+            result += "\\" + (b1 / 64) % 8 +  "" + (b1 / 8) % 8 + "" + b1 % 8;
+        }
+        return result;
+    }
+
+    public static String getOct(String s) throws UnsupportedEncodingException
+    {
+        String[] as = s.split("\\\\");
+        byte[] arr = new byte[as.length - 1];
+        for (int i = 1; i < as.length; i++)
+        {
+            int sum = 0;
+            int base = 64;
+            for (char c : as[i].toCharArray())
+            {
+                sum += base * ((int)c - '0');
+                base /= 8;
+            }
+            if (sum >= 128) sum = sum - 256;
+            arr[i - 1] = (byte)sum;
+        }
+        return new String(arr,"UTF-8"); //如果还有乱码，这里编码方式你可以修改下，比如试试看unicode gbk等等
     }
 }
 
