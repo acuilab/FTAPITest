@@ -118,12 +118,21 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
     }
     
     void getPlateSecurity() {
-        QotCommon.Security sec = QotCommon.Security.newBuilder().setCode("BK0922")
+        QotCommon.Security sec = QotCommon.Security.newBuilder().setCode("BK0439")
                 .setMarket(QotCommon.QotMarket.QotMarket_CNSH_Security.getNumber())
                 .build();
         QotGetPlateSecurity.C2S c2s = QotGetPlateSecurity.C2S.newBuilder().setPlate(sec).build();
         QotGetPlateSecurity.Request req = QotGetPlateSecurity.Request.newBuilder().setC2S(c2s).build();
         qot.getPlateSecurity(req);
+    }
+    
+    void getStaticInfo() {
+        QotGetStaticInfo.C2S c2s = QotGetStaticInfo.C2S.newBuilder()
+                .setMarket(QotCommon.QotMarket.QotMarket_CNSH_Security.getNumber())
+                .setSecType(QotCommon.SecurityType.SecurityType_Eqty_VALUE)
+                .build();
+        QotGetStaticInfo.Request req = QotGetStaticInfo.Request.newBuilder().setC2S(c2s).build();
+        qot.getStaticInfo(req);
     }
 
     //与OpenD连接和初始化完成，可以进行各种业务请求。如果ret为false，表示失败，desc中有错误信息
@@ -142,6 +151,7 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
 //        this.getBasicQot();
 //        this.getPlateSet();
         this.getPlateSecurity();
+//        this.getStaticInfo();
         
     }
 
@@ -208,6 +218,20 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
             System.out.println(basic.getName() + "\t" + sec.getCode());
         }
 //            System.out.printf("Reply GetPlateSecurity: %d  %s\n", nSerialNo, rsp.toString());
+    }
+
+    @Override
+    public void onReply_GetStaticInfo(FTAPI_Conn client, int nSerialNo, QotGetStaticInfo.Response rsp) {
+        QotGetStaticInfo.S2C s2c = rsp.getS2C();
+        System.out.println(rsp.getRetMsg());
+        List<QotCommon.SecurityStaticInfo> list = s2c.getStaticInfoListList();
+        int i=1;
+        for(QotCommon.SecurityStaticInfo l : list) {
+            QotCommon.SecurityStaticBasic basic = l.getBasic();
+            QotCommon.Security sec = basic.getSecurity();
+            System.out.println(i + "\t" + basic.getName() + "\t" + sec.getCode());
+            i++;
+        }
     }
     
 }
