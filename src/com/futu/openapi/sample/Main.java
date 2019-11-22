@@ -118,8 +118,8 @@ class TestQot implements FTSPI_Qot, FTSPI_Conn {
     }
     
     void getPlateSecurity() {
-        QotCommon.Security sec = QotCommon.Security.newBuilder().setCode("BK0439")
-                .setMarket(QotCommon.QotMarket.QotMarket_CNSH_Security.getNumber())
+        QotCommon.Security sec = QotCommon.Security.newBuilder().setCode("BK0922")
+                .setMarket(QotCommon.QotMarket.QotMarket_CNSZ_Security.getNumber())
                 .build();
         QotGetPlateSecurity.C2S c2s = QotGetPlateSecurity.C2S.newBuilder().setPlate(sec).build();
         QotGetPlateSecurity.Request req = QotGetPlateSecurity.Request.newBuilder().setC2S(c2s).build();
